@@ -32,7 +32,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
      * @author Michael Klier <chi@chimeric.de>
      */
     function helper_plugin_blogtng_entry() {
-        $this->sqlitehelper =& plugin_load('helper', 'blogtng_sqlite');
+        $this->sqlitehelper =& plugin_load('helper', 'sqlite');
         $this->entry = $this->prototype();
     }
 
@@ -58,7 +58,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
             $this->entry = $this->prototype();
             return self::RET_ERR_NOENTRY;
         }
-        if (sqlite_num_rows($resid) == 0) {
+        if ($this->sqlitehelper->res2count($resid) == 0) {
             $this->entry = $this->prototype();
             $this->entry['pid'] = $pid;
             return self::RET_ERR_DB;
@@ -257,7 +257,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
                    WHERE '.$blog_query.$tag_query;
         $resid = $this->sqlitehelper->query($query);
         if (!$resid) return;
-        $count = sqlite_num_rows($resid);
+        $count = $this->sqlitehelper->res2count($resid);
         if($count <= $conf['limit']) return '';
 
         // we now prepare an array of pages to show
@@ -532,7 +532,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
                 ORDER BY cnt DESC, created DESC
                    LIMIT ".(int) $num;
         $res = $this->sqlitehelper->query($query);
-        if(!sqlite_num_rows($res)) return; // no results found
+        if(!$this->sqlitehelper->res2count($res)) return; // no results found
         $res = $this->sqlitehelper->res2arr($res);
 
         // now do the output
@@ -734,7 +734,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
                     ORDER BY A.created ' . (($type == 'prev') ? 'DESC' : 'ASC') . '
                        LIMIT 1';
             $res = $this->sqlitehelper->query($query, $pid);
-            if (sqlite_num_rows($res) > 0) {
+            if ($this->sqlitehelper->res2count($res) > 0) {
                 $row = $this->sqlitehelper->res2row($res, 0);
                 $related[$type] = $row;
             }

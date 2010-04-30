@@ -30,7 +30,7 @@ class syntax_plugin_blogtng_topic extends DokuWiki_Syntax_Plugin {
     );
 
     function syntax_plugin_blogtng_topic() {
-        $this->sqlitehelper =& plugin_load('helper', 'blogtng_sqlite');
+        $this->sqlitehelper =& plugin_load('helper', 'sqlite');
         $this->taghelper =& plugin_load('helper', 'blogtng_tags');
     }
 
@@ -85,7 +85,7 @@ class syntax_plugin_blogtng_topic extends DokuWiki_Syntax_Plugin {
             case (preg_match('/^tpl(\w+)$/', $opt, $match)):
                 $this->config['tpl'] = $match[1];
                 break;
-            default;
+              default:
                 continue;
         }
     }
@@ -106,7 +106,7 @@ class syntax_plugin_blogtng_topic extends DokuWiki_Syntax_Plugin {
 
         ob_start();
         $entryhelper =& plugin_load('helper', 'blogtng_entry');
-        $count = sqlite_num_rows($resid);
+        $count = $this->sqlitehelper->res2count($resid);
         for ($i = 0; $i < $count; $i++) {
             $entryhelper->load_by_res($resid, $i);
             $entryhelper->tpl_content($data['tpl'], 'list');

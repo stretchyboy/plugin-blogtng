@@ -24,7 +24,7 @@ class admin_plugin_blogtng extends DokuWiki_Admin_Plugin {
     function admin_plugin_blogtng() {
         $this->commenthelper =& plugin_load('helper', 'blogtng_comments');
         $this->entryhelper   =& plugin_load('helper', 'blogtng_entry');
-        $this->sqlitehelper  =& plugin_load('helper', 'blogtng_sqlite');
+        $this->sqlitehelper =& plugin_load('helper', 'sqlite');
         $this->taghelper     =& plugin_load('helper', 'blogtng_tags');
     }
 
@@ -281,7 +281,7 @@ class admin_plugin_blogtng extends DokuWiki_Admin_Plugin {
         // FIXME selectable?
         $limit = 20;
 
-        $count = sqlite_num_rows($resid);
+        $count = $this->sqlitehelper->res2count($resid);
         $start = (isset($_REQUEST['btng']['query']['start'])) ? ($_REQUEST['btng']['query']['start'])  : 0;
         $end   = ($count >= ($start + $limit)) ? ($start + $limit) : $count;
         $cur   = ($start / $limit) + 1;
