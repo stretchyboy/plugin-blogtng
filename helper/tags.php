@@ -20,8 +20,23 @@ class helper_plugin_blogtng_tags extends DokuWiki_Plugin {
     /**
      * Constructor, loads the sqlite helper plugin
      */
-    function helper_plugin_blogtng_tags() {
-        $this->sqlitehelper =& plugin_load('helper', 'sqlite');
+    function helper_plugin_blogtng_tags()
+    {
+      $this->sqlitehelper =& $this->_getDB();
+    }
+    
+    
+     /**
+     * load the sqlite helper
+     */
+    function _getDB(){
+        $db =& plugin_load('helper', 'sqlite');
+                
+        if(!is_null($db) && $db->init('blogtng',dirname(dirname(__FILE__)).'/db/')){
+            return $db;
+        }else{
+            return false;
+        }
     }
 
     /**

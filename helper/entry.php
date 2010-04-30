@@ -31,11 +31,25 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
      *
      * @author Michael Klier <chi@chimeric.de>
      */
-    function helper_plugin_blogtng_entry() {
-        $this->sqlitehelper =& plugin_load('helper', 'sqlite');
-        $this->entry = $this->prototype();
+    function helper_plugin_blogtng_entry()
+    {
+      $this->sqlitehelper =& $this->_getDB();
+      $this->entry = $this->prototype();
     }
-
+    
+    
+     /**
+     * load the sqlite helper
+     */
+    function _getDB(){
+        $db =& plugin_load('helper', 'sqlite');
+                
+        if(!is_null($db) && $db->init('blogtng',dirname(dirname(__FILE__)).'/db/')){
+            return $db;
+        }else{
+            return false;
+        }
+    }
 
     //~~ data access methods
 
@@ -658,15 +672,16 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
 
         $query = 'SELECT A.pid as pid, page, title, blog, image, created,
                          lastmod, login, author, mail
-                    FROM entries A, tags B
-                   WHERE '.$blog_query.$tag_query.'
+                         FROM entries A'.($tag_query?', tags B':'').
+                   ' WHERE '.$blog_query.$tag_query.'
                 GROUP BY A.pid
                 ORDER BY '.$sortkey.' '.$conf['sortorder'].
                  ' LIMIT '.$conf['limit'].
                 ' OFFSET '.$conf['offset'];
-
+        
         $resid = $this->sqlitehelper->query($query);
-        return $this->sqlitehelper->res2arr($resid);
+        $data = $this->sqlitehelper->res2arr($resid);
+        return $data;
     }
 
     /**
