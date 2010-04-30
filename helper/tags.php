@@ -141,7 +141,7 @@ class helper_plugin_blogtng_tags extends DokuWiki_Plugin {
     }
 
     function tpl_tagstring($target, $separator) {
-        echo join($separator, array_map(array($this, _format_tag_link), $this->tags, array($target)));
+        echo join($separator, array_map(array($this, _format_tag_link), $this->tags, array_fill(0, count($this->tags), $target)));
     }
 
     /**
@@ -154,7 +154,7 @@ class helper_plugin_blogtng_tags extends DokuWiki_Plugin {
         if(!$tags) return;
         $cloud = array();
         foreach($tags as $tag) {
-            if(!$cloud[$tag['tag']]) {
+            if(!isset($cloud[$tag['tag']])) {
                 $cloud[$tag['tag']] = 1;
             } else {
                 $cloud[$tag['tag']]++;
@@ -165,11 +165,13 @@ class helper_plugin_blogtng_tags extends DokuWiki_Plugin {
         $cloud = array_slice(array_reverse($cloud), 0, $conf['limit']);
         $this->_cloud_weight($cloud, 5, 25, 5);
         ksort($cloud);
+	$output = "";
         foreach($cloud as $tag => $weight) {
-            ptln('<a href="' . wl($conf['target'], array('btng[post][tags]'=>$tag))
-                             . '" class="tag cloud_weight' . $weight
-                             . '" title="' . $tag . '">' . $tag . '<a/>');
+            $output .= '<a href="' . wl($conf['target'], array('btng[post][tags]'=>$tag))
+                    . '" class="tag cloud_weight' . $weight
+                    . '" title="' . $tag . '">' . $tag . "</a>\n";
         }
+	return $output;
     }
 
     /**

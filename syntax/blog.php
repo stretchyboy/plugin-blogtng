@@ -117,7 +117,7 @@ class syntax_plugin_blogtng_blog extends DokuWiki_Syntax_Plugin {
 
         // set target if not set yet
         global $ID;
-        if(!$data['conf']['target']) $data['conf']['target'] = $ID;
+        if(!isset($data['conf']['target'])) $data['conf']['target'] = $ID;
 
         // add additional data from request parameters
         if($start = $this->tools->getParam('pagination/start')){  // start offset
@@ -134,7 +134,7 @@ class syntax_plugin_blogtng_blog extends DokuWiki_Syntax_Plugin {
         $data['conf']['tags'] = array_filter($data['conf']['tags']);
 
         // dispatch to the correct type handler
-        $renderer->info['cache'] = (bool)$conf['cache'];
+        $renderer->info['cache'] = (bool)$data['conf']['cache'];
         switch($data['type']){
             case 'related':
                 $renderer->doc .= $this->entryhelper->xhtml_related($data['conf']);
