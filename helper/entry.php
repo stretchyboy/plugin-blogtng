@@ -239,7 +239,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
         if($conf['listwrap']) echo '<ul class="blogtng_list">';
         foreach ($posts as $row) {
             $this->load_by_row($row);
-            $this->tpl_content($conf['tpl'], 'list');
+            $this->tpl_content($conf['tpl'], 'list', $conf);
         }
         if($conf['listwrap']) echo '</ul>';
         $output = ob_get_contents();
@@ -383,7 +383,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
 
     //~~ template methods
 
-    function tpl_content($name, $type) {
+    function tpl_content($name, $type, $conf) {
         $whitelist = array('list', 'entry', 'feed');
         if(!in_array($type, $whitelist)) return;
         $tpl = DOKU_PLUGIN . 'blogtng/tpl/' . $name . '_' . $type . '.php';
