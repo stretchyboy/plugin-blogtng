@@ -75,12 +75,15 @@ class helper_plugin_blogtng_comments extends DokuWiki_Plugin {
     /**
      * Get comment count
      */
-    function get_count($types=null) {
+    function get_count($types=null, $includehidden=false) {
         $pid = $this->pid;
 
         $sql = 'SELECT COUNT(pid) as val
                   FROM comments
                  WHERE pid = ?';
+        if ($includehidden === false){
+            $sql .= ' AND status = \'visible\'';
+        }
         $args = array();
         $args[] = $pid;
         if(is_array($types)){
@@ -100,12 +103,34 @@ class helper_plugin_blogtng_comments extends DokuWiki_Plugin {
      * Save comment
      */
     function save($comment) {
+        if (isset($comment['cid'])) {
+            // Doing an update
+            $query = 'UPDATE comments SET pid=?, source=?, name=?, mail=?, ' .
+                     'web=?, avatar=?, created=?, text=?, status=? WHERE cid=?';
+            $this->sqlitehelper->query($query,
+                $comment['pid'],
+                $comment['source'],
+                $comment['name'],
+                $comment['mail'],
+                $comment['web'],
+                $comment['avatar'],
+                $comment['created'],
+                $comment['text'],
+                $comment['status'],
+                $comment['cid']
+            );
+            return;
+        }
+
+        // Doing an insert
+        $entry = plugin_load('helper', 'blogtng_entry');
+        $entry->load_by_pid($comment['pid']);
+        if ($entry->entry['commentstatus'] !== 'enabled') {
+            return;
+        }
+
         $query = 'INSERT OR IGNORE INTO comments (';
-        if(isset($comment['cid'])) $query .= 'cid, ';
-
         $query .= 'pid, source, name, mail, web, avatar, created, text, status, ip) VALUES (';
-        if(isset($comment['cid'])) $query .= '?, ';
-
         $query .= '?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
         $comment['status']  = ($this->getconf('moderate_comments')) ? 'hidden' : 'visible';
 
@@ -113,37 +138,6 @@ class helper_plugin_blogtng_comments extends DokuWiki_Plugin {
 
         $comment['avatar']  = ''; // FIXME create avatar using a helper function
 
-        if(isset($comment['cid'])) {
-            $this->sqlitehelper->query($query,
-                $comment['cid'],
-                $comment['pid'],
-                $comment['source'],
-                $comment['name'],
-                $comment['mail'],
-                $comment['web'],
-                $comment['avatar'],
-                $comment['created'],
-                $comment['text'],
-                $comment['status'],
-                $comment['ip']
-            );
-        } else {
-            $this->sqlitehelper->query($query,
-                $comment['pid'],
-                $comment['source'],
-                $comment['name'],
-                $comment['mail'],
-                $comment['web'],
-                $comment['avatar'],
-                $comment['created'],
-                $comment['text'],
-                $comment['status'],
-                $comment['ip']
-            );
-        }
-
-        //FIXME sometimes $comment['cid'] is undefined... so we end up with a broken query here
-        $query = 'UPDATE comments SET pid=?, source=?, name=?, mail=?, web=?, avatar=?, created=?, text=?, status=? WHERE cid=?';
         $this->sqlitehelper->query($query,
             $comment['pid'],
             $comment['source'],
@@ -154,19 +148,16 @@ class helper_plugin_blogtng_comments extends DokuWiki_Plugin {
             $comment['created'],
             $comment['text'],
             $comment['status'],
-            $comment['cid']
+            $comment['ip']
         );
 
-        // handle subscriptions (except on updates)
-        if(!$comment['cid']){
-            if($this->getConf('comments_subscription')) {
-                if($comment['subscribe']) {
-                    $this->subscribe($comment['pid'],$comment['mail']);
-                } else {
-                    // send subscriber and notify mails
-                    $this->send_subscriber_mails($comment);
-                }
+        // handle subscriptions
+        if($this->getConf('comments_subscription')) {
+            if($comment['subscribe']) {
+                $this->subscribe($comment['pid'],$comment['mail']);
             }
+            // send subscriber and notify mails
+            $this->send_subscriber_mails($comment);
         }
     }
 
@@ -236,7 +227,9 @@ class helper_plugin_blogtng_comments extends DokuWiki_Plugin {
         $mails = array_map('trim', split(',', $conf['notify']));
         $mails[] = $entry['mail'];
         $mails = array_unique(array_filter($mails));
-        mail_send('', $title, $atext, $conf['mailfrom'], '', $mails);
+        if (count($mails) > 0) {
+            mail_send('', $title, $atext, $conf['mailfrom'], '', implode(',', $mails));
+        }
 
         // finish here when subscriptions disabled
         if(!$this->getConf('comments_subscription')) return;
@@ -528,9 +521,8 @@ class helper_plugin_blogtng_comments extends DokuWiki_Plugin {
         global $INFO;
 
         // check template
-        $tpl = DOKU_PLUGIN.'blogtng/tpl/'.$tpl.'_recentcomments.php';
-        if(!file_exists($tpl)){
-            msg('blogtng plugin: template ' . $tpl . ' does not exist!', -1);
+        $tpl = helper_plugin_blogtng_tools::getTplFile($tpl, 'recentcomments');
+        if($tpl === false){
             return false;
         }
 
@@ -579,7 +571,6 @@ class blogtng_comment{
      * Resets the internal data with a given row
      */
     function init($row){
-        $this->num++;
         $this->data = $row;
 
     }
@@ -587,16 +578,16 @@ class blogtng_comment{
     function output($name){
         global $INFO;
         $name = preg_replace('/[^a-zA-Z_\-]+/','',$name);
-        $tpl = DOKU_PLUGIN . 'blogtng/tpl/' . $name . '_comments.php';
-        if(file_exists($tpl)) {
-            $comment = $this;
-            if($comment->data['status'] == 'visible' || ($comment->data['status'] == 'hidden' && $INFO['isadmin'])) {
-                include($tpl);
-        }
-        } else {
-            msg('blogtng plugin: template ' . $tpl . ' does not exist!', -1);
+        $tpl = helper_plugin_blogtng_tools::getTplFile($name, 'comments');
+        if($tpl === false){
+            return false;
         }
 
+        $comment = $this;
+        if($comment->data['status'] == 'visible' || ($comment->data['status'] == 'hidden' && $INFO['isadmin'])) {
+            $comment->num++;
+            include($tpl);
+        }
     }
 
     function tpl_comment(){
@@ -686,4 +677,4 @@ class blogtng_comment{
         }
     }
 }
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:

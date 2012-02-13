@@ -149,6 +149,12 @@ class action_plugin_blogtng_edit extends DokuWiki_Action_Plugin{
                 $this->entryhelper->entry['blog'] = $blog;
                 $this->entryhelper->entry['commentstatus'] = $this->tools->getParam('post/commentstatus');
 
+                if (empty($this->entryhelper->entry['page'])) {
+
+                    $this->entryhelper->entry['page'] = $ID;
+
+                }
+
                 // allow to override created date
                 if($this->tools->getParam('post/date') && $this->getConf('editform_set_date')) {
                     foreach(array('hh', 'mm', 'MM', 'DD') as $key) {
@@ -199,4 +205,4 @@ class action_plugin_blogtng_edit extends DokuWiki_Action_Plugin{
     }
 }
 
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:

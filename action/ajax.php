@@ -32,7 +32,7 @@ class action_plugin_blogtng_ajax extends DokuWiki_Action_Plugin{
         $event->preventDefault();
         $event->stopPropagation();
 
-        @require_once(DOKU_PLUGIN . 'blogtng/helper/comments.php');
+        require_once DOKU_PLUGIN . 'blogtng/helper/comments.php';
         $comment = new blogtng_comment();
 
         $comment->data['text']    = $_REQUEST['text'];
@@ -57,4 +57,4 @@ class action_plugin_blogtng_ajax extends DokuWiki_Action_Plugin{
         $comment->output('default');
     }
 }
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:

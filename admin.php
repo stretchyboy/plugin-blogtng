@@ -472,12 +472,12 @@ class admin_plugin_blogtng extends DokuWiki_Admin_Plugin {
 
         // comments edit link
         ptln('<td class="entry_comments">');
-        $count = $this->commenthelper->get_count();
+        $count = $this->commenthelper->get_count(null, true);
         if($count > 0) {
             ptln('<a href="' . wl($ID, array('do'=>'admin',
                                                      'page'=>'blogtng',
                                                      'btng[admin]'=>'search',
-                                                     'btng[query][filter]'=>'comments',
+                                                     'btng[query][filter]'=>'comment',
                                                      'btng[query][pid]'=>$entry['pid']))
                              . '" title="' . $this->getLang('comments') . '">' . $count . '</a>');
         } else {
@@ -735,4 +735,4 @@ class admin_plugin_blogtng extends DokuWiki_Admin_Plugin {
     }
 
 }
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:

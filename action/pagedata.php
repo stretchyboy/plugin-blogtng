@@ -39,7 +39,7 @@ class action_plugin_blogtng_pagedata extends DokuWiki_Action_Plugin{
 
         // fetch author info
         $login = $this->entryhelper->entry['login'];
-        if(!$login) $login = $data['current']['creator'];
+        if(!$login) $login = $data['current']['user'];
         if(!$login) $login = $_SERVER['REMOTE_USER'];
 
         $userdata = false;
@@ -62,7 +62,7 @@ class action_plugin_blogtng_pagedata extends DokuWiki_Action_Plugin{
             'lastmod' => (!$date_modified) ? $date_created : $date_modified,
             'login' => $login,
             'author' => ($userdata) ? $userdata['name'] : $login,
-            'email' => ($userdata) ? $userdata['mail'] : '',
+            'mail' => ($userdata) ? $userdata['mail'] : '',
         );
         $this->entryhelper->set($entry);
 
@@ -71,4 +71,4 @@ class action_plugin_blogtng_pagedata extends DokuWiki_Action_Plugin{
     }
 
 }
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:

@@ -94,16 +94,34 @@ class helper_plugin_blogtng_tags extends DokuWiki_Plugin {
      * Save tags
      */
     function save() {
+        //FIXME $sqlite undefined
         $query = 'BEGIN TRANSACTION';
-        $this->sqlitehelper->query($query);
+        if (!$this->sqlitehelper->query($query)) {
+            $sqlite->query('ROLLBACK TRANSACTION');
+            return;
+        }
         $query = 'DELETE FROM tags WHERE pid = ?';
-        $this->sqlitehelper->query($query, $this->pid);
+        if (!$this->sqlitehelper->query($query, $this->pid)) {
+            $sqlite->query('ROLLBACK TRANSACTION');
+            return;
+        }
         foreach ($this->tags as $tag) {
             $query = 'INSERT INTO tags (pid, tag) VALUES (?, ?)';
-            $this->sqlitehelper->query($query, $this->pid, $tag);
+            if (!$this->sqlitehelper->query($query, $this->pid, $tag)) {
+                $sqlite->query('ROLLBACK TRANSACTION');
+                return;
+            }
         }
         $query = 'END TRANSACTION';
-        $this->sqlitehelper->query($query);
+        if (!$this->sqlitehelper->query($query)) {
+            $sqlite->query('ROLLBACK TRANSACTION');
+            return;
+        }
+
+        global $ID;
+        // FIXME This should probably happen in metadata rendering
+        p_set_metadata($ID, array('subject' => $this->tags), false, true);
+
     }
 
     function set($tags) {
@@ -156,7 +174,7 @@ class helper_plugin_blogtng_tags extends DokuWiki_Plugin {
     }
 
     function tpl_tagstring($target, $separator) {
-        echo join($separator, array_map(array($this, _format_tag_link), $this->tags, array_fill(0, count($this->tags), $target)));
+        echo join($separator, array_map(array($this, '_format_tag_link'), $this->tags, array_fill(0, count($this->tags), $target)));
     }
 
     /**
@@ -178,15 +196,15 @@ class helper_plugin_blogtng_tags extends DokuWiki_Plugin {
         }
         asort($cloud);
         $cloud = array_slice(array_reverse($cloud), 0, $conf['limit']);
-        $this->_cloud_weight($cloud, 5, 25, 5);
+        $this->_cloud_weight($cloud, min($cloud), max($cloud), 5);
         ksort($cloud);
-	$output = "";
+        $output = "";
         foreach($cloud as $tag => $weight) {
             $output .= '<a href="' . wl($conf['target'], array('btng[post][tags]'=>$tag))
                     . '" class="tag cloud_weight' . $weight
                     . '" title="' . $tag . '">' . $tag . "</a>\n";
         }
-	return $output;
+        return $output;
     }
 
     /**
@@ -218,4 +236,4 @@ class helper_plugin_blogtng_tags extends DokuWiki_Plugin {
         return '<a href="'.wl($target,array('btng[post][tags]'=>$tag)).'" class="tag">'.hsc($tag).'</a>';
     }
 }
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:

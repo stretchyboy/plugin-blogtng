@@ -99,9 +99,9 @@ class action_plugin_blogtng_feed extends DokuWiki_Action_Plugin{
     function handle_item_add(&$event, $param) {
         $opt = $event->data['opt'];
         $ditem = $event->data['ditem'];
-        if (!$opt['feed_mode'] == 'blogtng') return;
-        if (!$opt['item_content'] == 'html') return;
-        if (!$opt['link_to'] == 'current') return;
+        if ($opt['feed_mode'] !== 'blogtng') return;
+        if ($opt['item_content'] !== 'html') return;
+        if ($opt['link_to'] !== 'current') return;
 
         // don't add drafts to the feed
         if(p_get_metadata($ditem['id'], 'type') == 'draft') {
@@ -123,6 +123,7 @@ class action_plugin_blogtng_feed extends DokuWiki_Action_Plugin{
         $output = ob_get_contents();
         ob_end_clean();
         // make URLs work when canonical is not set, regexp instead of rerendering!
+        global $conf;
         if(!$conf['canonical']){
             $base = preg_quote(DOKU_REL,'/');
             $output = preg_replace('/(<a href|<img src)="('.$base.')/s','$1="'.DOKU_URL,$output);
@@ -147,4 +148,4 @@ class action_plugin_blogtng_feed extends DokuWiki_Action_Plugin{
         return false;
     }
 }
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:

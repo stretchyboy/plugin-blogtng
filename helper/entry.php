@@ -26,6 +26,8 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
     var $taghelper     = null;
     var $toolshelper   = null;
 
+    var $renderer      = null;
+
     /**
      * Constructor, loads the sqlite helper plugin
      *
@@ -70,12 +72,12 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
         if ($resid === false) {
             msg('blogtng plugin: failed to load entry!', -1);
             $this->entry = $this->prototype();
-            return self::RET_ERR_NOENTRY;
+            return self::RET_ERR_DB;
         }
         if ($this->sqlitehelper->res2count($resid) == 0) {
             $this->entry = $this->prototype();
             $this->entry['pid'] = $pid;
-            return self::RET_ERR_DB;
+            return self::RET_ERR_NOENTRY;
         }
 
         $result = $this->sqlitehelper->res2arr($resid);
@@ -104,6 +106,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
         if($resid === false) {
             msg('blogtng plugin: failed to load entry, did not get a valid resource id!', -1);
             $this->entry = $this->prototype();
+            // FIXME undefined constant
             return self::RET_ERR_BADRES;
         }
 
@@ -139,7 +142,8 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
             'lastmod' => null,
             'author' => null,
             'login' => null,
-            'email' => null,
+            'mail' => null,
+            'commentstatus' => $this->getConf('commentstatus_default'),
         );
     }
 
@@ -231,10 +235,13 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
      *
      * Calls the *_list template for each entry in the result set
      */
-    function xhtml_list($conf){
+    function xhtml_list($conf, &$renderer=null){
         $posts = $this->get_posts($conf);
         if (!$posts) return '';
+        $rendererBackup =& $this->renderer;
+        $this->renderer =& $renderer;
 
+        $entryBackup = $this->entry;
         ob_start();
         if($conf['listwrap']) echo '<ul class="blogtng_list">';
         foreach ($posts as $row) {
@@ -244,6 +251,8 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
         if($conf['listwrap']) echo '</ul>';
         $output = ob_get_contents();
         ob_end_clean();
+        $this->entry = $entryBackup; // restore previous entry in order to allow nesting
+        $this->renderer =& $rendererBackup; // clean up again
         return $output;
     }
 
@@ -322,7 +331,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
             }else{
                 $out .= '<a href="'.wl($conf['target'],
                                     array('btng[pagination][start]'=>$conf['limit']*($page-1),
-                                          'btng[pagination][tags]'=>join(',',$conf['tags']))).
+                                          'btng[post][tags]'=>join(',',$conf['tags']))).
                                  '">'.$page.'</a> ';
             }
             $last = $page;
@@ -331,7 +340,7 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
         if($cur < $max){
             $out .= '<a href="'.wl($conf['target'],
                                    array('btng[pagination][start]'=>$conf['limit']*($cur),
-                                         'btng[pagination][tags]'=>join(',',$conf['tags']))).
+                                         'btng[post][tags]'=>join(',',$conf['tags']))).
                              '" class="next">'.$this->getLang('next').'</a> ';
         }
         $out .= '</div>';
@@ -385,13 +394,12 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
 
     function tpl_content($name, $type, $conf = null) {
         $whitelist = array('list', 'entry', 'feed');
-        if(!in_array($type, $whitelist)) return;
-        $tpl = DOKU_PLUGIN . 'blogtng/tpl/' . $name . '_' . $type . '.php';
-        if(file_exists($tpl)) {
+        if(!in_array($type, $whitelist)) return false;
+
+        $tpl = helper_plugin_blogtng_tools::getTplFile($name, $type);
+        if($tpl !== false) {
             $entry = $this;
             include($tpl);
-        } else {
-            msg('blogtng plugin: template ' . $tpl . ' does not exist!', -1);
         }
     }
 
@@ -641,8 +649,8 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
     //~~ utility methods
 
     function get_blogs() {
-        $pattern = DOKU_PLUGIN . 'blogtng/tpl/*_entry.php';
-        $files = glob($pattern);
+        $pattern = DOKU_PLUGIN . 'blogtng/tpl/*{_,/}entry.php';
+        $files = glob($pattern, GLOB_BRACE);
         $blogs = array('');
         foreach ($files as $file) {
             array_push($blogs, substr($file, strlen(DOKU_PLUGIN . 'blogtng/tpl/'), -10));
@@ -663,17 +671,18 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
         $blog_query = '(blog = '.
                       $this->sqlitehelper->quote_and_join($conf['blog'],
                                                           ' OR blog = ').')';
-        $tag_query = "";
+        $tag_query = $tag_table = "";
         if(count($conf['tags'])){
             $tag_query  = ' AND (tag = '.
                           $this->sqlitehelper->quote_and_join($conf['tags'],
                                                               ' OR tag = ').') AND A.pid = B.pid';
+            $tag_table  = ', tags B';
         }
 
         $query = 'SELECT A.pid as pid, page, title, blog, image, created,
                          lastmod, login, author, mail
-                         FROM entries A'.($tag_query?', tags B':'').
-                   ' WHERE '.$blog_query.$tag_query.'
+                    FROM entries A'.$tag_table.'
+                   WHERE '.$blog_query.$tag_query.'
                 GROUP BY A.pid
                 ORDER BY '.$sortkey.' '.$conf['sortorder'].
                  ' LIMIT '.$conf['limit'].
@@ -692,27 +701,53 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
      * @return unknown_type
      */
     function get_entrycontent($readmore='syntax', $inc_level=true, $skipheader=false) {
-        static $recursion = false;
-        if($recursion){
-            msg('blogtng: preventing infinite loop',-1);
-            return false; // avoid infinite loops
-        }
-        $recursion = true;
+        static $recursion = array();
 
         $id = $this->entry['page'];
 
+        if(in_array($id, $recursion)){
+            msg('blogtng: preventing infinite loop',-1);
+            return false; // avoid infinite loops
+        }
+
+        $recursion[] = $id;
+
         // FIXME do some caching here!
-        global $ID;
+        global $ID, $TOC, $conf;
         $info = array();
 
-        $ins = p_cached_instructions(wikiFN($id));
         $backupID = $ID;
-        $ID = $id;
+        $ID = $id; // p_cached_instructions doesn't change $ID, so we need to do it or plugins like the discussion plugin might store information for the wrong page
+        $ins = p_cached_instructions(wikiFN($id));
+        $ID = $backupID; // restore the original $ID as otherwise _convert_instructions won't do anything
         $this->_convert_instructions($ins, $inc_level, $readmore, $skipheader);
+        $ID = $id;
+
+        $handleTOC = ($this->renderer !== null); // the call to p_render below might set the renderer
+
+        if ($handleTOC){
+            $renderer =& $this->renderer; // save the renderer before p_render changes it
+            $backupTOC = $TOC; // the renderer overwrites the global $TOC
+            $backupTocminheads = $conf['tocminheads'];
+            $conf['tocminheads'] = 1; // let the renderer always generate a toc
+        }
+
         $content = p_render('xhtml', $ins, $info);
+
+        if ($handleTOC){
+            if ($TOC && $backupTOC !== $TOC && $info['toc']){
+                $renderer->toc = array_merge($renderer->toc, $TOC);
+                $TOC = null; // Reset the global toc as it is included in the renderer now
+                             // and if the renderer decides to not to output it the 
+                             // global one should be empty
+            }
+            $conf['tocminheads'] = $backupTocminheads;
+            $this->renderer =& $renderer;
+        }
+
         $ID = $backupID;
 
-        $recursion = false;
+        array_pop($recursion);
         return $content;
     }
 
@@ -986,4 +1021,4 @@ class helper_plugin_blogtng_entry extends DokuWiki_Plugin {
     }
 
 }
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:

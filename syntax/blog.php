@@ -90,8 +90,8 @@ class syntax_plugin_blogtng_blog extends DokuWiki_Syntax_Plugin {
         }
 
         // default to listwrap for recent comments
-        if($type == 'recentcomments'){
-            $this->config['listwrap'] = 1;
+        if($type == 'recentcomments' && !isset($conf['listwrap'])){
+            $conf['listwrap'] = 1;
         }
 
         // reversed listwrap syntax
@@ -125,7 +125,7 @@ class syntax_plugin_blogtng_blog extends DokuWiki_Syntax_Plugin {
         }
 
         if($tags = $this->tools->getParam('post/tags')){  // tags
-           $data['conf']['tags'] = array_merge(
+            $data['conf']['tags'] = array_merge(
                                        $data['conf']['tags'],
                                        explode(',',$tags));
         }
@@ -157,7 +157,7 @@ class syntax_plugin_blogtng_blog extends DokuWiki_Syntax_Plugin {
                 $renderer->doc .= $this->taghelper->xhtml_tagcloud($data['conf']);
                 break;
             default:
-                $renderer->doc .= $this->entryhelper->xhtml_list($data['conf']);
+                $renderer->doc .= $this->entryhelper->xhtml_list($data['conf'], $renderer);
         }
 
         return true;
@@ -188,4 +188,4 @@ class syntax_plugin_blogtng_blog extends DokuWiki_Syntax_Plugin {
         }
     }
 }
-// vim:ts=4:sw=4:et:enc=utf-8:
+// vim:ts=4:sw=4:et:
