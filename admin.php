@@ -22,12 +22,27 @@ class admin_plugin_blogtng extends DokuWiki_Admin_Plugin {
     function forAdminOnly() { return false; }
 
     function admin_plugin_blogtng() {
+        $this->sqlitehelper  =& $this->_getDB();
         $this->commenthelper =& plugin_load('helper', 'blogtng_comments');
         $this->entryhelper   =& plugin_load('helper', 'blogtng_entry');
-        $this->sqlitehelper =& plugin_load('helper', 'sqlite');
         $this->taghelper     =& plugin_load('helper', 'blogtng_tags');
     }
 
+    
+     /**
+     * load the sqlite helper
+     */
+    function _getDB(){
+        $db =& plugin_load('helper', 'sqlite');
+                
+        if(!is_null($db) && $db->init('blogtng',dirname(dirname(__FILE__)).'/db/')){
+            return $db;
+        }else{
+            return false;
+        }
+    }
+
+    
     /**
      * Handles all actions of the admin component
      *
